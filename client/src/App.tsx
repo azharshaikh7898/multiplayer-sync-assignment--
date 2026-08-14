@@ -5,6 +5,12 @@ import { renderFrame, colorForClientId, type ReactionBurst } from "./render";
 import type { ServerMessage } from "./protocol";
 
 const ROOM_ID = "watch-party-42";
+
+// Use the deployed server URL in production builds, localhost in dev.
+const WS_URL = import.meta.env.PROD
+  ? "wss://multiplayer-sync-assignment.onrender.com"
+  : "ws://localhost:8080";
+
 const CURSOR_SEND_HZ = 25; // throttle outgoing cursor updates
 const SEND_INTERVAL_MS = 1000 / CURSOR_SEND_HZ;
 
@@ -27,7 +33,7 @@ export default function App() {
   // Connection setup: connect, join room, and handle incoming messages.
   useEffect(() => {
     const room = createRoom({
-      url: "ws://localhost:8080",
+      url: WS_URL,
       clientId: clientIdRef.current,
       roomId: ROOM_ID,
     });
@@ -134,40 +140,40 @@ export default function App() {
   }
 
   return (
-  <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 900, margin: "0 auto", padding: 24, boxSizing: "border-box" }}>
-    <h1 style={{ fontSize: 22, marginBottom: 4 }}>Multiplayer Sync Demo</h1>
+    <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 900, margin: "0 auto", padding: 24, boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: 22, marginBottom: 4 }}>Multiplayer Sync Demo</h1>
 
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 14 }}>
-      <span style={{ color: "#22c55e" }}>●</span>
-      <span>{participants.length} user{participants.length !== 1 ? "s" : ""} online</span>
-    </div>
-
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
-      <canvas
-        ref={canvasRef}
-        width={700}
-        height={450}
-        style={{ border: "1px solid #333", cursor: "crosshair", borderRadius: 4, maxWidth: "100%" }}
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
-      />
-
-      <div style={{ minWidth: 160 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "#666" }}>Users</h2>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-          {participants.map((id) => (
-            <li key={id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-              <span style={{ color: colorForClientId(id) }}>●</span>
-              <span>{id === clientIdRef.current ? `${id} (you)` : id}</span>
-            </li>
-          ))}
-        </ul>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 14 }}>
+        <span style={{ color: "#22c55e" }}>●</span>
+        <span>{participants.length} user{participants.length !== 1 ? "s" : ""} online</span>
       </div>
-    </div>
 
-    <p style={{ marginTop: 16, fontSize: 13, color: "#888" }}>
-      Move mouse to broadcast cursor, click to send a reaction.
-    </p>
-  </div>
-);
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
+        <canvas
+          ref={canvasRef}
+          width={700}
+          height={450}
+          style={{ border: "1px solid #333", cursor: "crosshair", borderRadius: 4, maxWidth: "100%" }}
+          onMouseMove={handleMouseMove}
+          onClick={handleClick}
+        />
+
+        <div style={{ minWidth: 160 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "#666" }}>Users</h2>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            {participants.map((id) => (
+              <li key={id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <span style={{ color: colorForClientId(id) }}>●</span>
+                <span>{id === clientIdRef.current ? `${id} (you)` : id}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <p style={{ marginTop: 16, fontSize: 13, color: "#888" }}>
+        Move mouse to broadcast cursor, click to send a reaction.
+      </p>
+    </div>
+  );
 }
