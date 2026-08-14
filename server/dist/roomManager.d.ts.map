@@ -1,0 +1,1 @@
+{"version":3,"file":"roomManager.d.ts","sourceRoot":"","sources":["../src/roomManager.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,IAAI,EAAE,MAAM,WAAW,CAAC;AAEjC,qBAAa,WAAW;IACtB,OAAO,CAAC,KAAK,CAA2B;IAExC,WAAW,CAAC,MAAM,EAAE,MAAM,GAAG,IAAI,CAOhC;IAGD,aAAa,CAAC,MAAM,EAAE,MAAM,GAAG,IAAI,CAKlC;CACF"}
