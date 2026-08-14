@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { parseClientMessage } from "./protocol.js";
 import { RoomManager } from "./roomManager.js";
 
-const PORT = 8080;
+const PORT = Number(process.env.PORT) || 8080;
 const HEARTBEAT_INTERVAL_MS = 15000;
 
 const roomManager = new RoomManager();
