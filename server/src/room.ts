@@ -10,8 +10,20 @@ interface ClientState {
   isAlive: boolean;
 }
 
+interface RecentReaction {
+  x: number;
+  y: number;
+  serverTime: number;
+  conflictId: string;
+}
+
+const CONFLICT_RADIUS_PX = 50;
+const CONFLICT_WINDOW_MS = 300;
+const RECENT_BUFFER_MAX = 20; // small, bounded — avoid unbounded growth
+
 export class Room {
   private clients = new Map<string, ClientState>();
+  private recentReactions: RecentReaction[] = []; // NEW
 
   join(clientId: string, ws: WebSocket): void {
     // Prevent duplicate cursors on reconnect: replace stale entry if present.
@@ -69,6 +81,12 @@ export class Room {
     const c = this.clients.get(clientId);
     if (!c) return;
 
+    if (action.type === "latency") {
+      // Pure info relay — no seq/ordering needed, no stored state to update.
+      this.broadcast(clientId, action);
+      return;
+    }
+
     // Only cursor/reaction carry seq and get relayed — join/leave are handled elsewhere.
     if (action.type !== "cursor" && action.type !== "reaction") return;
 
@@ -79,11 +97,44 @@ export class Room {
     if (action.type === "cursor") {
       c.lastX = action.x;
       c.lastY = action.y;
+      this.broadcast(clientId, action);
+      return;
     }
 
-    // Broadcast the action directly — protocol defines ServerMessage's
-    // "cursor"/"reaction" shape to match ClientMessage's, so no wrapping needed.
-    this.broadcast(clientId, action);
+    // action.type === "reaction" — check for conflicts before broadcasting.
+    const now = Date.now();
+
+    // Prune old entries outside the conflict window.
+    this.recentReactions = this.recentReactions.filter(
+      (r) => now - r.serverTime <= CONFLICT_WINDOW_MS
+    );
+
+    const conflict = this.recentReactions.find(
+      (r) => Math.hypot(r.x - action.x, r.y - action.y) <= CONFLICT_RADIUS_PX
+    );
+
+    let conflictId: string;
+    let conflictRank: number;
+
+    if (conflict) {
+      conflictId = conflict.conflictId;
+      // Count how many entries already share this conflictId to compute rank.
+      conflictRank = this.recentReactions.filter((r) => r.conflictId === conflictId).length;
+    } else {
+      conflictId = `${clientId}-${action.seq}-${now}`; // deterministic-enough unique id
+      conflictRank = 0;
+    }
+
+    this.recentReactions.push({ x: action.x, y: action.y, serverTime: now, conflictId });
+    if (this.recentReactions.length > RECENT_BUFFER_MAX) {
+      this.recentReactions.shift(); // bounded — never grows unbounded
+    }
+
+    const enriched = conflictRank > 0 || conflict
+      ? { ...action, conflictId, conflictRank }
+      : action; // no conflict: broadcast unchanged, no extra fields
+
+    this.broadcast(clientId, enriched);
   }
 
   private send(clientId: string, msg: ServerMessage): void {

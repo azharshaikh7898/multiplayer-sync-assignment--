@@ -6,6 +6,7 @@ export interface RoomConnection {
   send: (msg: ClientMessage) => void;
   onMessage: (handler: MessageHandler) => void;
   close: () => void;
+  getRTT: () => number | null;
 }
 
 interface CreateRoomOptions {
@@ -14,12 +15,26 @@ interface CreateRoomOptions {
   roomId: string;
 }
 
+const PING_INTERVAL_MS = 3000;
+
 export function createRoom(opts: CreateRoomOptions): RoomConnection {
   let ws: WebSocket | null = null;
   let handlers: MessageHandler[] = [];
   let reconnectAttempt = 0;
   let closedByUser = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let pingInterval: ReturnType<typeof setInterval> | null = null;
+  let lastRTT: number | null = null;
+  let rttSamples: number[] = [];
+  const MAX_SAMPLES = 5;
+
+  function computeJitter(samples: number[]): number {
+    if (samples.length < 2) return 0;
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+    const avgDeviation =
+      samples.reduce((sum, v) => sum + Math.abs(v - mean), 0) / samples.length;
+    return avgDeviation;
+  }
 
   function connect(): void {
     // Guard: never open a second live socket while one is already
@@ -34,6 +49,12 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
     ws.addEventListener("open", () => {
       reconnectAttempt = 0;
       send({ type: "join", clientId: opts.clientId, roomId: opts.roomId });
+
+      // Start periodic RTT probing. Re-armed on every (re)connect.
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        send({ type: "ping", clientId: opts.clientId, sentAt: performance.now() });
+      }, PING_INTERVAL_MS);
     });
 
     ws.addEventListener("message", (event) => {
@@ -44,10 +65,36 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
         return;
       }
       if (!isServerMessage(parsed)) return;
+
+      if (parsed.type === "pong") {
+        const rtt = performance.now() - (parsed as { sentAt: number }).sentAt;
+        lastRTT = rtt;
+
+        rttSamples.push(rtt);
+        if (rttSamples.length > MAX_SAMPLES) rttSamples.shift();
+        const jitter = computeJitter(rttSamples);
+
+        const latencyMsg: ServerMessage = {
+          type: "latency",
+          clientId: opts.clientId,
+          rtt: Math.round(rtt),
+          jitter: Math.round(jitter),
+        };
+
+        // Tell the server so OTHER clients learn our latency...
+        send({ type: "latency", clientId: opts.clientId, rtt: latencyMsg.rtt, jitter: latencyMsg.jitter });
+        // ...and update our own UI immediately, without waiting on a
+        // round-trip broadcast (the server never echoes back to sender).
+        for (const h of handlers) h(latencyMsg);
+
+        return; // transport-internal, not forwarded to app-level handlers
+      }
+
       for (const h of handlers) h(parsed);
     });
 
     ws.addEventListener("close", () => {
+      if (pingInterval) clearInterval(pingInterval);
       if (closedByUser) return;
       const delay = Math.min(1000 * 2 ** reconnectAttempt, 10000);
       reconnectAttempt++;
@@ -73,8 +120,10 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
     close: () => {
       closedByUser = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingInterval) clearInterval(pingInterval);
       ws?.close();
     },
+    getRTT: () => lastRTT,
   };
 }
 

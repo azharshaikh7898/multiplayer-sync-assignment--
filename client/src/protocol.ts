@@ -6,14 +6,26 @@ export type ClientMessage =
   | { type: "join"; clientId: string; roomId: string }
   | { type: "cursor"; clientId: string; seq: number; x: number; y: number }
   | { type: "reaction"; clientId: string; seq: number; x: number; y: number; reaction: string }
-  | { type: "leave"; clientId: string };
+  | { type: "leave"; clientId: string }
+  | { type: "ping"; clientId: string; sentAt: number }
+  | { type: "latency"; clientId: string; rtt: number; jitter: number };
 
 export type ServerMessage =
   | { type: "welcome"; clientId: string; participants: Presence[] }
   | { type: "presence"; clientId: string; status: "join" | "leave" }
   | { type: "cursor"; clientId: string; seq: number; x: number; y: number }
-  | { type: "reaction"; clientId: string; seq: number; x: number; y: number; reaction: string }
-  | { type: "error"; message: string };
+  | {
+      type: "reaction";
+      clientId: string;
+      seq: number;
+      x: number;
+      y: number;
+      reaction: string;
+      conflictId?: string;   // present only if this reaction conflicted with another
+      conflictRank?: number; // 0 = first to arrive, 1 = second, etc.
+    }
+  | { type: "pong"; sentAt: number }
+  | { type: "latency"; clientId: string; rtt: number; jitter: number };
 
 export interface Presence {
   clientId: string;
@@ -63,6 +75,16 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
 
     case "leave":
       return { type: "leave", clientId: m.clientId };
+
+    case "ping":
+      return isFiniteNumber(m.sentAt)
+        ? { type: "ping", clientId: m.clientId, sentAt: m.sentAt }
+        : null;
+
+    case "latency":
+      return isFiniteNumber(m.rtt) && isFiniteNumber(m.jitter)
+        ? { type: "latency", clientId: m.clientId, rtt: m.rtt, jitter: m.jitter }
+        : null;
 
     default:
       return null; // unknown type -> rejected

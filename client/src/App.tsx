@@ -11,8 +11,15 @@ const WS_URL = import.meta.env.PROD
   ? "wss://multiplayer-sync-assignment.onrender.com"
   : "ws://localhost:8080";
 
-const CURSOR_SEND_HZ = 25; // throttle outgoing cursor updates
-const SEND_INTERVAL_MS = 1000 / CURSOR_SEND_HZ;
+// Adaptive send rate: choose interval based on measured RTT, so we
+// don't flood a high-latency connection with updates it can't keep
+// up with, but stay responsive on a fast one.
+function intervalForRTT(rtt: number | null): number {
+  if (rtt === null) return 1000 / 25;       // no data yet, assume good
+  if (rtt < 100) return 1000 / 25;          // low latency: 25Hz
+  if (rtt < 300) return 1000 / 15;          // medium: 15Hz
+  return 1000 / 8;                          // high latency: 8Hz
+}
 
 function randomClientId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -29,6 +36,7 @@ export default function App() {
   const lastSentPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const [participants, setParticipants] = useState<string[]>([]);
+  const [latencies, setLatencies] = useState<Record<string, { rtt: number; jitter: number }>>({});
 
   // Connection setup: connect, join room, and handle incoming messages.
   useEffect(() => {
@@ -53,13 +61,32 @@ export default function App() {
               ? [...new Set([...prev, msg.clientId])]
               : prev.filter((id) => id !== msg.clientId)
           );
-          if (msg.status === "leave") interpolatorRef.current.remove(msg.clientId);
+          if (msg.status === "leave") {
+            interpolatorRef.current.remove(msg.clientId);
+            setLatencies((prev) => {
+              const next = { ...prev };
+              delete next[msg.clientId];
+              return next;
+            });
+          }
           break;
         case "cursor":
           interpolatorRef.current.updateTarget(msg.clientId, msg.x, msg.y, msg.seq);
           break;
         case "reaction":
-          bursts.current.push({ x: msg.x, y: msg.y, emoji: msg.reaction, startedAt: performance.now() });
+          bursts.current.push({
+            x: msg.x,
+            y: msg.y,
+            emoji: msg.reaction,
+            startedAt: performance.now(),
+            conflictRank: msg.conflictRank,
+          });
+          break;
+        case "latency":
+          setLatencies((prev) => ({
+            ...prev,
+            [msg.clientId]: { rtt: msg.rtt, jitter: msg.jitter },
+          }));
           break;
       }
     });
@@ -67,13 +94,17 @@ export default function App() {
     return () => room.close();
   }, []);
 
-  // Fixed-rate send loop: decoupled from mousemove events.
-  // Reads whatever the latest stored position is and sends it at a
-  // controlled interval (25Hz), skipping the send if unchanged since
-  // the last tick. This guarantees a predictable, bounded send rate
-  // regardless of how fast mousemove actually fires (60-120Hz raw).
+  // Adaptive-rate send loop: decoupled from mousemove events.
+  // Reads whatever the latest stored position is and sends it, but the
+  // interval itself is re-evaluated periodically based on measured RTT
+  // (see intervalForRTT above) — a slow/high-latency connection gets
+  // throttled harder than a fast one, instead of always sending at a
+  // fixed 25Hz regardless of network conditions.
   useEffect(() => {
-    const interval = setInterval(() => {
+    let currentInterval: ReturnType<typeof setInterval> | null = null;
+    let currentMs = -1;
+
+    function tick() {
       const pos = latestPosRef.current;
       if (!pos) return;
 
@@ -88,9 +119,24 @@ export default function App() {
         x: pos.x,
         y: pos.y,
       });
-    }, SEND_INTERVAL_MS);
+    }
 
-    return () => clearInterval(interval);
+    function restart() {
+      const rtt = roomRef.current?.getRTT() ?? null;
+      const targetMs = intervalForRTT(rtt);
+      if (targetMs === currentMs) return; // no meaningful change, don't churn the timer
+      if (currentInterval) clearInterval(currentInterval);
+      currentMs = targetMs;
+      currentInterval = setInterval(tick, targetMs);
+    }
+
+    restart();
+    const watcher = setInterval(restart, 1000); // re-check RTT once a second
+
+    return () => {
+      if (currentInterval) clearInterval(currentInterval);
+      clearInterval(watcher);
+    };
   }, []);
 
   // Render loop: reads interpolated positions every animation frame.
@@ -161,12 +207,20 @@ export default function App() {
         <div style={{ minWidth: 160 }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "#666" }}>Users</h2>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            {participants.map((id) => (
-              <li key={id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <span style={{ color: colorForClientId(id) }}>●</span>
-                <span>{id === clientIdRef.current ? `${id} (you)` : id}</span>
-              </li>
-            ))}
+            {participants.map((id) => {
+              const lat = latencies[id];
+              return (
+                <li key={id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                  <span style={{ color: colorForClientId(id) }}>●</span>
+                  <span>{id === clientIdRef.current ? `${id} (you)` : id}</span>
+                  {lat && (
+                    <span style={{ color: "#999", fontSize: 11, marginLeft: "auto" }}>
+                      {lat.rtt}ms ±{lat.jitter}ms
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>

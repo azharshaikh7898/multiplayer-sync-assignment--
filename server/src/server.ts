@@ -26,6 +26,15 @@ wss.on("connection", (ws: WebSocket) => {
     const msg = parseClientMessage(parsed);
     if (!msg) return; // unknown/invalid type → dropped, not crashed
 
+    if (msg.type === "ping") {
+      // Pure latency probe — reply immediately, bypassing room logic
+      // entirely, since this doesn't require having joined a room.
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: "pong", sentAt: msg.sentAt }));
+      }
+      return;
+    }
+
     if (msg.type === "join") {
       const room = roomManager.getOrCreate(msg.roomId);
       room.join(msg.clientId, ws);

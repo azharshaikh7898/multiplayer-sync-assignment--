@@ -10,6 +10,7 @@ export interface ReactionBurst {
   y: number;
   emoji: string;
   startedAt: number;
+  conflictRank?: number; // NEW
 }
 
 const BURST_DURATION_MS = 800;
@@ -38,9 +39,18 @@ export function renderFrame(
     const age = now - b.startedAt;
     if (age > BURST_DURATION_MS) continue;
     const progress = age / BURST_DURATION_MS;
+
+    // If this burst conflicted with another, offset it slightly so both
+    // are visible instead of perfectly overlapping, and grow it a touch —
+    // every client receives the same conflictRank from the server, so
+    // this offset is identical everywhere, keeping state consistent.
+    const rank = b.conflictRank ?? 0;
+    const offsetX = rank * 14;
+    const sizeBoost = rank > 0 ? 6 : 0;
+
     ctx.globalAlpha = 1 - progress;
-    ctx.font = `${24 + progress * 20}px sans-serif`;
-    ctx.fillText(b.emoji, b.x, b.y - progress * 40);
+    ctx.font = `${24 + sizeBoost + progress * 20}px sans-serif`;
+    ctx.fillText(b.emoji, b.x + offsetX, b.y - progress * 40);
     ctx.globalAlpha = 1;
   }
 }
