@@ -408,22 +408,44 @@ clean, reproducible result.)*
 ---
 
 ## 16. AI Tools Used
-
-[FILL IN / personalize — starter draft:]
-
-Claude (Anthropic) was used throughout development as a
-pair-programming and debugging assistant: drafting initial
-implementations of `protocol.ts`, `room.ts`, `connection.ts`,
-`interpolation.ts`, and the bonus features (extrapolation, adaptive
-throttling, conflict reconciliation, latency display) against my own
-architecture decisions; helping diagnose bugs during testing (e.g. the
-heartbeat multi-sweep bug in section 9, a React StrictMode
-double-connection issue, a Render deployment configuration issue, and
-several test snippet issues from repeated console pasting); and
-helping structure this documentation. All code was reviewed, tested
-manually (multi-tab, multi-device, network throttling, malformed
-message injection via `wscat`, server-restart reconnect testing), and
-I can explain any part of it.
+ 
+I used Claude (Anthropic) throughout this project, mainly as a coding
+partner I could talk through decisions with and lean on when I got
+stuck.
+ 
+For the core pieces — `protocol.ts`, `room.ts`, `connection.ts`,
+`interpolation.ts` — I'd describe what I wanted and Claude would draft
+an implementation, which I'd then read through, test, and adjust. Same
+approach for the bonus features later on (extrapolation, the
+adaptive-throttling RTT logic, the conflict-reconciliation stuff, and
+the latency/jitter display).
+ 
+It was also genuinely useful for debugging. A few examples: the
+heartbeat bug where the server was disconnecting everyone every ~15
+seconds turned out to be because I was sweeping the same room multiple
+times per tick instead of once — took a bit of back-and-forth to
+actually spot that. There was also a weird double-connection issue
+from React StrictMode in dev mode, and later some annoyance getting
+the Render deployment working (a stale build that still pointed at
+localhost after I'd already "fixed" it, which turned out to just be a
+forgotten git push).
+ 
+Testing the trickier stuff — network throttling, disconnect/reconnect,
+the conflict-reconciliation timing — took several attempts to actually
+capture cleanly. Some of it (like a fully clean recording of two
+simultaneous reactions triggering the offset-rendering behavior) I
+never quite nailed on video, even though I'm confident the logic
+itself is correct after going through it carefully. I've noted that
+honestly in the limitations section rather than overstating what I
+proved.
+ 
+I also used it to help structure this README and the ARCHITECTURE
+doc, though the actual decisions about what limitations to disclose,
+what to prioritize, and how much time to spend on each bonus feature
+were mine.
+ 
+Everything in this repo I've read, tested myself, and can explain —
+nothing here is code I don't understand.
 
 ---
 
