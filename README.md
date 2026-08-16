@@ -382,13 +382,29 @@ visibly increase when Chrome DevTools throttling is applied to a tab.
 ---
 
 ## 15. Time Spent
-
-[FILL IN — e.g. "Approximately X hours across Y days: core sync
-engine/protocol/server (~X hrs), client transport + interpolation
-(~X hrs), testing/debugging (~X hrs), UI polish (~X hrs), deployment
-(~X hrs), bonus features — extrapolation, adaptive throttling,
-reconciliation, latency UI (~X hrs), documentation (~X hrs)."]
-
+ 
+Approximately 14-16 hours total, spread across 3 days:
+ 
+- Project setup, server (protocol, room, room manager, heartbeat): ~2 hrs
+- Client transport, interpolation, throttled cursor sync, first working
+  multi-tab demo: ~2.5 hrs
+- Debugging round (React StrictMode double-connect, a heartbeat
+  multi-sweep bug causing forced disconnects every ~15s, a layout
+  overflow bug in the presence UI): ~2 hrs
+- Reactions, presence UI, ordering/sequence numbers: ~1.5 hrs
+- Disconnect/reconnect handling + testing (server-restart simulation,
+  multi-tab, multi-device): ~1.5 hrs
+- Deployment to Render (server + client, environment-aware WebSocket
+  URL, PORT config, debugging a stale-build issue): ~1.5 hrs
+- CI pipeline (GitHub Actions, type-check + build): ~0.5 hrs
+- Bonus features extrapolation, RTT-based adaptive throttling,
+  simultaneous-action reconciliation, live latency/jitter UI: ~3.5 hrs
+- Documentation (README, ARCHITECTURE): ~1.5 hrs
+*(Note: actual clock time was somewhat longer than active working
+time, since testing steps especially network-throttling and
+multi-client timing tests often required several attempts to get a
+clean, reproducible result.)*
+ 
 ---
 
 ## 16. AI Tools Used
