@@ -3,12 +3,12 @@
 A raw-WebSocket, framework-free real-time sync engine: multiple browser
 clients share a live cursor canvas with smooth interpolated (and
 extrapolated) movement and tap-to-react emoji bursts. No Socket.IO,
-Yjs, PartyKit, or any other real-time sync library — transport,
+Yjs, PartyKit, or any other real-time sync library transport,
 protocol, and interpolation are all hand-built.
 
-**Live demo:** [PASTE YOUR CLIENT RENDER URL HERE]
-**Server (WebSocket endpoint):** [PASTE YOUR SERVER RENDER URL HERE]
-**Repository:** [PASTE YOUR GITHUB URL HERE]
+**Live demo:** [https://multiplayer-sync-assignment-1.onrender.com/]
+**Server (WebSocket endpoint):** [(https://multiplayer-sync-assignment.onrender.com)]
+**Repository:** [https://github.com/azharshaikh7898/multiplayer-sync-assignment--]
 
 ---
 
@@ -17,15 +17,19 @@ protocol, and interpolation are all hand-built.
 This project implements a shared cursor/reaction canvas where every
 connected client sees every other client's mouse position live, with
 smooth interpolated/extrapolated motion (no teleporting), plus a
-tap-to-react emoji action. The server is a minimal, honest relay — it
-validates, tracks presence, and broadcasts; it does not own game logic
+tap to react emoji action. The server is a minimal, honest relay it
+validates, tracks presence, and broadcasts, it does not own game logic
 beyond that.
 
-Built for the "Real-Time Multiplayer Cursor/State Sync" take-home
-assignment. Beyond the core requirements, all five optional bonus
-items were implemented: extrapolation, RTT-based adaptive throttling,
-simultaneous-action reconciliation, live per-client latency/jitter
-display, and a written horizontal-scaling discussion.
+Built for the “Real-Time Multiplayer Cursor/State Sync” take-home assignment.
+
+Beyond the core requirements, all five optional bonus features were implemented:
+
+- Cursor/state extrapolation
+- RTT-based adaptive throttling
+- Simultaneous-action reconciliation
+- Live per-client latency and jitter display
+- Horizontal-scaling architecture discussion
 
 ---
 
@@ -33,15 +37,15 @@ display, and a written horizontal-scaling discussion.
 
 See `ARCHITECTURE.md` for the full breakdown. Summary of the file layout:
 
-- `server/src/server.ts` — raw WebSocket connection lifecycle, heartbeat loop, ping/pong reply
-- `server/src/roomManager.ts` — multi-room bookkeeping (creates/removes Room instances)
-- `server/src/room.ts` — presence, broadcast, ordering, and conflict-reconciliation logic
-- `server/src/protocol.ts` — message types + runtime validation (shared w/ client)
-- `client/src/connection.ts` — WebSocket transport: connect, reconnect w/ backoff, RTT/jitter measurement
-- `client/src/interpolation.ts` — buffered linear interpolation + velocity-based extrapolation per remote cursor
-- `client/src/render.ts` — canvas drawing (cursors, reaction bursts, colors, conflict offsets)
-- `client/src/App.tsx` — React UI: wires transport, interpolation, render, and adaptive send-rate together
-- `client/src/protocol.ts` — copied from server (manually kept in sync)
+- `server/src/server.ts` - raw WebSocket connection lifecycle, heartbeat loop, ping/pong reply
+- `server/src/roomManager.ts` - multi-room bookkeeping (creates/removes Room instances)
+- `server/src/room.ts` - presence, broadcast, ordering, and conflict-reconciliation logic
+- `server/src/protocol.ts` - message types + runtime validation (shared w/ client)
+- `client/src/connection.ts` - WebSocket transport: connect, reconnect w/ backoff, RTT/jitter measurement
+- `client/src/interpolation.ts` - buffered linear interpolation + velocity-based extrapolation per remote cursor
+- `client/src/render.ts` - canvas drawing (cursors, reaction bursts, colors, conflict offsets)
+- `client/src/App.tsx` - React UI: wires transport, interpolation, render, and adaptive send-rate together
+- `client/src/protocol.ts` - copied from server (manually kept in sync)
 
 Transport, protocol, and rendering are cleanly separated — a new action
 type could be added by extending `protocol.ts`'s message union and
@@ -73,14 +77,14 @@ Client (separate terminal):
 
 ## 4. How to Run
 
-**Terminal 1 — start the server:**
+**Terminal 1 -- start the server:**
 
     cd server
     npm run dev
 
 Should print: `WebSocket server listening on ws://localhost:8080`
 
-**Terminal 2 — start the client:**
+**Terminal 2 -- start the client:**
 
     cd client
     npm run dev
@@ -88,7 +92,7 @@ Should print: `WebSocket server listening on ws://localhost:8080`
 Opens on `http://localhost:5173`
 
 **To test multi-client sync:** open `localhost:5173` in 3–5 separate
-browser tabs. Move your mouse in one tab — cursors should appear and
+browser tabs. Move your mouse in one tab cursors should appear and
 move smoothly in the others. Click anywhere on the canvas to send a
 🔥 reaction, visible to all other connected clients. Each user's row
 in the "Users" list shows their live round-trip latency and jitter.
@@ -102,7 +106,7 @@ in the "Users" list shows their live round-trip latency and jitter.
 
 ## 5. Protocol Design
 
-Every message is **self-describing** — it carries `clientId`, so
+Every message is **self-describing** it carries `clientId`, so
 neither side has to infer "who sent this" purely from connection
 context. Every `cursor`/`reaction` message also carries a monotonically
 increasing per-client `seq` number, used for ordering (see §11).
@@ -137,7 +141,7 @@ All incoming messages are parsed through `parseClientMessage()` in
 `protocol.ts`, which checks not just JS type correctness but sane value
 ranges (coordinates bounded to ±100,000, reaction strings capped at
 8 characters). Any message with an unknown `type`, missing/wrong-typed
-fields, or out-of-range values is **silently dropped** — never crashes
+fields, or out-of-range values is **silently dropped** never crashes
 the connection, never gets broadcast. Verified manually via `wscat`,
 sending malformed JSON, missing fields, and unknown message types.
 
@@ -146,7 +150,7 @@ sending malformed JSON, missing fields, and unknown message types.
 On `join`, the server immediately sends the new client a `welcome`
 message containing a full snapshot of all currently-connected
 participants' last known cursor positions (`Room.join()` in
-`room.ts`). Chosen over a replay-log approach for simplicity — a new
+`room.ts`). Chosen over a replay-log approach for simplicity a new
 joiner sees where everyone currently is, not the history of how they
 got there. Verified via manual multi-terminal `wscat` tests.
 
@@ -154,15 +158,15 @@ got there. Verified via manual multi-terminal `wscat` tests.
 
 ## 7. Throttling
 
-Raw `mousemove` fires at 60–120Hz — sending every event would be
+Raw `mousemove` fires at 60–120Hz sending every event would be
 wasteful. `handleMouseMove` only updates a locally-stored "latest
-position" ref — no network call. A separate timer is the *only* place
+position" ref no network call. A separate timer is the *only* place
 that actually sends a `cursor` message, and it **skips the send
 entirely if the position hasn't changed** since the last tick.
 
 ### Adaptive rate (bonus)
 
-The send interval is not fixed — it adapts to measured round-trip
+The send interval is not fixed it adapts to measured round-trip
 latency. Every 3 seconds, the client sends a `ping` (server replies
 immediately with `pong`, echoing the timestamp) to measure RTT:
 
@@ -176,7 +180,7 @@ needless timer churn. This avoids flooding a slow connection with
 updates it can't usefully deliver in time, while staying maximally
 responsive on a fast one. The measured RTT is also broadcast to other
 clients (via a `latency` message) and displayed live in the UI (§13,
-Users list) — verified visually by watching the displayed number
+Users list) verified visually by watching the displayed number
 climb under Chrome DevTools "Slow 3G" throttling.
 
 ---
@@ -191,7 +195,7 @@ frame, we compute the render position for `now - 100ms`, linearly
 interpolated between `prev` and `target`.
 
 **Why render slightly in the past:** rendering "live" the instant a
-new update arrives means only one known point exists — the renderer
+new update arrives means only one known point exists the renderer
 would have to guess where the cursor is heading. Rendering 100ms
 behind guarantees two *real, confirmed* points to interpolate between,
 at the cost of a small fixed visual lag.
@@ -202,7 +206,7 @@ last known `target`), the interpolator falls back to extrapolating
 forward from the last known point using its velocity (computed from
 the two most recent real positions: `(target - prev) / (targetT -
 prevT)`). This is capped at **250ms** to prevent unbounded drift
-during long gaps — after that, the cursor freezes rather than
+during long gaps after that, the cursor freezes rather than
 continuing to guess indefinitely. The moment a real update arrives,
 `updateTarget()` unconditionally resets `prev`/`target`, so the next
 frame automatically falls back to normal interpolation — no special
@@ -218,12 +222,12 @@ frame automatically falls back to normal interpolation — no special
   a middle ground.
 
 **Verified:** tested under Chrome DevTools "Slow 3G"/"Slow 4G"
-throttling — remote cursor motion remained visibly smooth and
+throttling remote cursor motion remained visibly smooth and
 continuous (no teleport/snap) both with and without a fresh update
 arriving in time, with the expected small correction on resync.
 
 **Memory:** the interpolator stores only 2 points + a velocity vector
-per client — never a full position history — so memory usage stays
+per client never a full position history so memory usage stays
 constant regardless of session length.
 
 ---
@@ -265,9 +269,9 @@ creating a second entry.
 **Note on identity across reconnect vs. refresh:** within a single tab
 session, `clientId` persists across automatic reconnects. A full page
 **refresh** generates a **new** `clientId` (a fresh page load, not a
-resumed session) — the old identity is cleaned up by the normal
+resumed session) the old identity is cleaned up by the normal
 close/heartbeat path, and a new one joins fresh. Intentional, not a
-bug — see Known Limitations.
+bug see Known Limitations.
 
 ---
 
@@ -316,7 +320,7 @@ consistent broadcast to all clients), and exercised via direct
 `wscat` message injection at identical coordinates. A fully clean,
 visually-recorded proof of two near-simultaneous real browser clicks
 triggering the offset rendering was attempted several times but not
-cleanly captured — see Known Limitations.
+cleanly captured see Known Limitations.
 
 ---
 
@@ -332,7 +336,7 @@ displayed live next to each name in the "Users" list, e.g.:
 
 The sender also updates its own UI immediately upon receiving its own
 `pong`, rather than waiting for the server to broadcast its own
-latency back (which never happens, by design — the server doesn't
+latency back (which never happens, by design the server doesn't
 echo to sender). Verified live: values update continuously and
 visibly increase when Chrome DevTools throttling is applied to a tab.
 
@@ -340,24 +344,24 @@ visibly increase when Chrome DevTools throttling is applied to a tab.
 
 ## 14. Known Limitations
 
-- **No persistence across server restart** — all room/presence state
+- **No persistence across server restart**  all room/presence state
   is in-memory only. Restarting the server drops all rooms.
 - **No horizontal scaling story implemented** (bonus discussion,
-  written only) — a single server process holds all room state;
+  written only) a single server process holds all room state;
   running multiple instances would require a shared broadcast layer
   (e.g. Redis pub/sub) so a message received by instance A can be
   relayed to clients connected to instance B. Room membership would
   also need to either be sticky-routed to one instance per room, or
-  presence state would need to move into the shared layer too — not
+  presence state would need to move into the shared layer too not
   implemented, discussed here only.
-- **No authentication** — any client can join any room with any
+- **No authentication** any client can join any room with any
   self-declared `clientId`; explicitly out of scope per the
   assignment FAQ.
-- **Refresh = new identity** — a page refresh creates a new
+- **Refresh = new identity** a page refresh creates a new
   `clientId`, not a resumed session. Reconnects *within* a session
   correctly persist identity; refreshes do not.
 - **Client/server protocol types are manually duplicated**, not
-  imported from a shared package — a manual sync step during
+  imported from a shared package a manual sync step during
   development, not automated.
 - **Deployed on Render's free tier**, which spins down after ~15 min
   of inactivity; first connection after idle may take 30-60s.
@@ -369,7 +373,7 @@ visibly increase when Chrome DevTools throttling is applied to a tab.
   already-established WebSocket connections in this environment; a
   fully isolated recording of same-session auto-reconnect without any
   page refresh was attempted but not cleanly captured.
-- **Reconciliation visual proof** (see section 12) — logic implemented
+- **Reconciliation visual proof** (see section 12) logic implemented
   and reasoned through, but a clean recorded demonstration of the
   offset-rendering behavior under a real simultaneous multi-tab click
   was not obtained despite several attempts; verified instead via
@@ -409,11 +413,11 @@ I can explain any part of it.
 
 ## 17. Deployment URL
 
-**Client:** [PASTE YOUR CLIENT RENDER URL HERE]
-**Server (WebSocket):** [PASTE YOUR SERVER RENDER URL HERE]
+**Client:** [https://multiplayer-sync-assignment-1.onrender.com/]
+**Server (WebSocket):** [https://multiplayer-sync-assignment.onrender.com]
 
 Note: the server URL will show "426 Upgrade Required" if opened
-directly in a browser — this is correct/expected, since it's a
+directly in a browser this is correct/expected, since it's a
 WebSocket-only endpoint with no HTTP routes. Open the **client** URL
 to use the app.
 
@@ -421,4 +425,4 @@ to use the app.
 
 ## 18. GitHub URL
 
-[PASTE YOUR GITHUB REPO URL HERE]
+[https://github.com/azharshaikh7898/multiplayer-sync-assignment--]
