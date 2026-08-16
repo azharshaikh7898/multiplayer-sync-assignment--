@@ -77,7 +77,7 @@ Responsibilities:
 What it deliberately does **not** do: it has no idea what a "cursor,"
 "reaction," or "latency" report *means* beyond routing. This keeps the
 transport code stable even as new message types (like `ping`/`latency`,
-added for the bonus features) are introduced, see §6.
+added for the bonus features) are introduced, see Section 6.
 
 ### 2.2 Protocol Layer, `protocol.ts`
 
@@ -87,7 +87,7 @@ the **only** place in the codebase that decides whether a message is
 well-formed.
 
 Responsibilities:
-- Type-level contract between client and server (shared file, see §7)
+- Type-level contract between client and server (shared file, see Section 7)
 - Runtime validation: correct `type`, correct field types, *and* sane
   value ranges, not just "is this technically a `number`"
 - Returns `null` for anything invalid; callers silently drop `null`
@@ -96,7 +96,7 @@ Responsibilities:
 The bonus features added new variants here rather than new files:
 `ping`/`pong` (latency probing), `latency` (self-reported RTT/jitter
 relay), and two optional fields on `reaction`: `conflictId` and
-`conflictRank`: used by the reconciliation feature (§2.4). Extending
+`conflictRank`: used by the reconciliation feature (Section 2.4). Extending
 a union type and adding one validation `case` was the entire integration
 surface for each of these; no other file's *shape* needed to change,
 only their *logic* did.
@@ -297,7 +297,7 @@ statement, not a new subsystem.
 
 ### Server-authoritative timing for both ordering and conflicts
 
-Both the ordering guard (§11 in README) and the conflict-detection
+Both the ordering guard (Section 11 in README) and the conflict-detection
 window use **server-observed** timing (`Date.now()` on arrival, or
 strict per-connection message order), never client-reported
 timestamps. Client clocks can't be trusted to agree with each other,
