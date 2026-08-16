@@ -126,6 +126,19 @@ Responsibilities:
   (see below), broadcast. For `latency`: pure relay, no state update.
 - `sweepDeadClients()` / `markAlive()`: heartbeat-driven cleanup
 
+**Bug found and fixed during development:** the heartbeat sweep in
+`server.ts` originally iterated `roomId` once per *client connection*
+rather than once per *distinct room*, which meant `sweepDeadClients()`
+ran multiple times per tick whenever a room had more than one client.
+The second call in the same tick saw every client's `isAlive` flag
+already `false` from the first call (no time had passed for a real
+pong to arrive), and force-disconnected the entire room, every ~15
+seconds. Symptom in testing: all clients in a shared room got kicked
+and had to reconnect on a fixed ~15s cycle, even though nothing was
+actually wrong with their connections. Fixed by deduping room IDs into
+a `Set` before sweeping, so each room is swept exactly once per tick
+regardless of how many clients are in it.
+
 **Conflict reconciliation (bonus), added to `handleAction`:** before
 broadcasting a `reaction`, the room checks its `recentReactions` buffer
 (pruned by age on every call) for any entry within 50px and 300ms of
@@ -297,7 +310,7 @@ statement, not a new subsystem.
 
 ### Server-authoritative timing for both ordering and conflicts
 
-Both the ordering guard (Section 11 in README) and the conflict-detection
+Both the ordering guard (see "Ordering" in README) and the conflict-detection
 window use **server-observed** timing (`Date.now()` on arrival, or
 strict per-connection message order), never client-reported
 timestamps. Client clocks can't be trusted to agree with each other,
