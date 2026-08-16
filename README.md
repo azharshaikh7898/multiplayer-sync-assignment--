@@ -12,7 +12,7 @@ protocol, and interpolation are all hand-built.
 
 ---
 
-## Summary
+## TL;DR
 
 - Raw WebSocket sync engine, no libraries, custom protocol, server, client
 - Live shared cursor canvas + tap-to-react emoji, tested with up to 5
