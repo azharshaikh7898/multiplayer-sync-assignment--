@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createRoom } from "./connection";
+import { createRoom, type ConnectionStatus } from "./connection";
 import { CursorInterpolator } from "./interpolation";
 import { renderFrame, colorForClientId, type ReactionBurst } from "./render";
 import type { ServerMessage } from "./protocol";
@@ -37,6 +37,7 @@ export default function App() {
 
   const [participants, setParticipants] = useState<string[]>([]);
   const [latencies, setLatencies] = useState<Record<string, { rtt: number; jitter: number }>>({});
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
 
   // Connection setup: connect, join room, and handle incoming messages.
   useEffect(() => {
@@ -46,6 +47,8 @@ export default function App() {
       roomId: ROOM_ID,
     });
     roomRef.current = room;
+
+    room.onStatusChange(setConnectionStatus);
 
     room.onMessage((msg: ServerMessage) => {
       switch (msg.type) {
@@ -190,8 +193,24 @@ export default function App() {
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>Multiplayer Sync Demo</h1>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, fontSize: 14 }}>
-        <span style={{ color: "#22c55e" }}>●</span>
-        <span>{participants.length} user{participants.length !== 1 ? "s" : ""} online</span>
+        {connectionStatus === "connecting" && (
+          <>
+            <span style={{ color: "#eab308" }}>●</span>
+            <span>Connecting...</span>
+          </>
+        )}
+        {connectionStatus === "connected" && (
+          <>
+            <span style={{ color: "#22c55e" }}>●</span>
+            <span>{participants.length} user{participants.length !== 1 ? "s" : ""} online</span>
+          </>
+        )}
+        {connectionStatus === "disconnected" && (
+          <>
+            <span style={{ color: "#ef4444" }}>●</span>
+            <span>Disconnected, reconnecting...</span>
+          </>
+        )}
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>

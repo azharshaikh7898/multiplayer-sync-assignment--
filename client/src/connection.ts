@@ -1,10 +1,13 @@
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 
 type MessageHandler = (msg: ServerMessage) => void;
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+type StatusHandler = (status: ConnectionStatus) => void;
 
 export interface RoomConnection {
   send: (msg: ClientMessage) => void;
   onMessage: (handler: MessageHandler) => void;
+  onStatusChange: (handler: StatusHandler) => void;
   close: () => void;
   getRTT: () => number | null;
 }
@@ -20,6 +23,8 @@ const PING_INTERVAL_MS = 3000;
 export function createRoom(opts: CreateRoomOptions): RoomConnection {
   let ws: WebSocket | null = null;
   let handlers: MessageHandler[] = [];
+  let statusHandlers: StatusHandler[] = [];
+  let status: ConnectionStatus = "connecting";
   let reconnectAttempt = 0;
   let closedByUser = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -27,6 +32,12 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
   let lastRTT: number | null = null;
   let rttSamples: number[] = [];
   const MAX_SAMPLES = 5;
+
+  function setStatus(next: ConnectionStatus): void {
+    if (status === next) return;
+    status = next;
+    for (const h of statusHandlers) h(next);
+  }
 
   function computeJitter(samples: number[]): number {
     if (samples.length < 2) return 0;
@@ -48,6 +59,7 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
 
     ws.addEventListener("open", () => {
       reconnectAttempt = 0;
+      setStatus("connected");
       send({ type: "join", clientId: opts.clientId, roomId: opts.roomId });
 
       // Start periodic RTT probing. Re-armed on every (re)connect.
@@ -96,9 +108,13 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
     ws.addEventListener("close", () => {
       if (pingInterval) clearInterval(pingInterval);
       if (closedByUser) return;
+      setStatus("disconnected");
       const delay = Math.min(1000 * 2 ** reconnectAttempt, 10000);
       reconnectAttempt++;
-      reconnectTimer = setTimeout(connect, delay);
+      reconnectTimer = setTimeout(() => {
+        setStatus("connecting");
+        connect();
+      }, delay);
     });
 
     ws.addEventListener("error", () => {
@@ -117,6 +133,10 @@ export function createRoom(opts: CreateRoomOptions): RoomConnection {
   return {
     send,
     onMessage: (handler) => handlers.push(handler),
+    onStatusChange: (handler) => {
+      statusHandlers.push(handler);
+      handler(status); // immediately report current status to new subscribers
+    },
     close: () => {
       closedByUser = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
