@@ -124,7 +124,8 @@ in the "Users" list shows their live round-trip latency and jitter.
 Every message is **self-describing**, it carries `clientId`, so
 neither side has to infer "who sent this" purely from connection
 context. Every `cursor`/`reaction` message also carries a monotonically
-increasing per-client `seq` number, used for ordering (see §11).
+increasing per-client `seq` number, used for ordering (see the
+Ordering section below).
 
 ## 6. Message Types
 
@@ -194,8 +195,8 @@ tears down/rebuilds the send timer if it actually changed, avoiding
 needless timer churn. This avoids flooding a slow connection with
 updates it can't usefully deliver in time, while staying maximally
 responsive on a fast one. The measured RTT is also broadcast to other
-clients (via a `latency` message) and displayed live in the UI (§13
-Users list), verified visually by watching the displayed number
+clients (via a `latency` message) and displayed live in the UI (see
+the Users list section below), verified visually by watching the displayed number
 climb under Chrome DevTools "Slow 3G" throttling.
 
 ---
