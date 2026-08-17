@@ -10,6 +10,14 @@ protocol, and interpolation logic are all hand-built.
 **Server (WebSocket endpoint):** https://multiplayer-sync-assignment.onrender.com/
 **Repository:** https://github.com/azharshaikh7898/multiplayer-sync-assignment--
 
+> **Note:** the server URL shows "426 Upgrade Required" if opened
+> directly in a browser, that's expected since it's a WebSocket-only
+> endpoint with no HTTP routes. Also, Render's free tier spins down
+> after ~15 min of inactivity, so the first connection after idle can
+> take 30-60s while the server wakes up.
+
+---
+
 ## Summary
 
 - Raw WebSocket sync engine with a custom protocol, server, and client. No sync libraries used.
